@@ -14,9 +14,11 @@ Add headers to all Burp requests to bypass some WAF products.  This extension wi
 Usage
 =====
 
-1) Add extension to burp
-2) Create a session handling rule in Burp that invokes this extension
-3) Modify the scope to include applicable tools and URLs
-4) Test away
+<ul>
+<ol>Add extension to burp</ol>
+<ol>Create a session handling rule in Burp that invokes this extension</ol>
+<ol>Modify the scope to include applicable tools and URLs</ol>
+<ol>Test away</ol>
+</ul>
 
-More information can be found at: 
+More information can be found at: <a href="ttps://www.codewatch.org/blog/?p=408" target=_codewatch>https://www.codewatch.org/blog/?p=408</a>
