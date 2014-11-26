@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.0.3
+ * Version:        0.0.4
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -12,6 +12,10 @@
  * 
  * This article by Fishnet was used to help understand how to build the plugin:
  * https://www.fishnetsecurity.com/6labs/blog/automatically-adding-new-header-burp
+ *
+ * Other bypass techinques have largely been derived from Ivan Ristic's work:
+ * https://media.blackhat.com/bh-us-12/Briefings/Ristic/BH_US_12_Ristic_Protocol_Level_Slides.pdf
+ * https://github.com/ironbee/waf-research
 */
 
 package burp;
@@ -36,9 +40,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private static final String bypassWafVersion = "0.0.3";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
-  /*private int contentTypeBypass = 0;*/
   private String contentTypeBypass = "Keep";
-  /*private final Integer[] contentOpts = { 0, 1, 2 };*/
+  private String hostNameBypass = "DefaultHostname";
   private final List<String> bwafHeaders = Arrays.asList("X-Originating-IP", "X-Forwarded-For", "X-Remote-IP", "X-Remote-Addr");
   private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
   private final List<String> bwafCTHeaders = Arrays.asList(
@@ -95,15 +98,15 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     extCallbacks.setExtensionName("Bypass WAF");
     extCallbacks.registerSessionHandlingAction(this);
     
-    /* Create a tab to configure header IP or alternate values */
+    /* Create a tab to configure header values */
     bwafPanel = new JPanel(null);
     JLabel bwafIPLabel = new JLabel();
     JLabel bwafCTLabel = new JLabel();
-    /*JLabel bwafCTOptsLabel = new JLabel();*/
-    /*final JComboBox bwafCTCbx = new JComboBox(contentOpts);*/
+    JLabel bwafHostLabel = new JLabel();
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JTextField bwafIPText = new JTextField();
-    JButton bwafSetHeaderBtn = new JButton("Set Headers");
+    final JTextField bwafHostText = new JTextField();
+    JButton bwafSetHeaderBtn = new JButton("Set Config");
     printOut = new PrintWriter(extCallbacks.getStdout(), true);
     printHeader();
     
@@ -114,18 +117,20 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     
     /* Set Content-Type headers */
     bwafCTLabel.setText("Content-Type:");
-    /*bwafCTOptsLabel.setText("<html>0 - Content-Type unchanged<BR>1 - Content-Type: invalid<BR>2 - Content-Type removed</html>");*/
     bwafCTLabel.setBounds(16, 50, 85, 20);
-    /*bwafCTCbx.setBounds(146, 47, 50, 26);*/
     bwafCTCbx.setBounds(146, 47, 275, 26);
-    /*bwafCTOptsLabel.setBounds(221, 45, 200, 70);*/
+    
+    /* Set host header */
+    bwafHostLabel.setText("Host Header:");
+    bwafHostLabel.setBounds(16, 85, 85, 20);
+    bwafHostText.setBounds(146, 82, 275, 26);
     
     /* Create button for setting options */
     bwafSetHeaderBtn.setBounds(441, 15, 100, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
-        /*contentTypeBypass = (int)bwafCTCbx.getSelectedItem();*/
+        hostNameBypass = bwafHostText.getText();
         contentTypeBypass = (String)bwafCTCbx.getSelectedItem();
         bwafCTCbx.setSelectedIndex(bwafCTCbx.getSelectedIndex());
       }
@@ -134,19 +139,20 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     /* Initialize defaults */
     bwafIPText.setText(bypassIP);
     bwafCTCbx.setSelectedIndex(0);
+    bwafHostText.setText(hostNameBypass);
 
     /* Add label and field to tab */
     bwafPanel.add(bwafIPLabel);
     bwafPanel.add(bwafIPText);
     bwafPanel.add(bwafCTLabel);
-    /*bwafPanel.add(bwafCTOptsLabel);*/
     bwafPanel.add(bwafCTCbx);
+    bwafPanel.add(bwafHostLabel);
+    bwafPanel.add(bwafHostText);
     bwafPanel.add(bwafSetHeaderBtn);
     
     /* Add the tab to Burp */
     extCallbacks.customizeUiComponent(bwafPanel);
     extCallbacks.addSuiteTab(BurpExtender.this);
-    
   }
   
   /* Print to extension output tab */
@@ -178,41 +184,25 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     String reqRaw = new String(currentRequest.getRequest());
     String reqBody = reqRaw.substring(requestInfo.getBodyOffset());
     Integer contentInHeader = 0;
-    /*Integer originIPExist = 0;
-    Integer forwardForExist = 0;
-    Integer remoteIPExist = 0;
-    Integer remoteAddrExist = 0;*/
     
     /* Loop through the headers to add or set values */
     for (int i = 0; i < headers.size(); i++) {
             
-        /* Set to either a Content-Type of "invalid" or remove Content-Type */
+        /* Set to one of the selected content types or remove Content-Type */
         if (headers.get(i).startsWith("Content-Type:")) {                
-            /*if (contentTypeBypass == 1) {
-                contentInHeader = 1;
-                headers.set(i, "Content-Type: invalid" );
-            } else if (contentTypeBypass == 2) {
-                headers.remove(i);
-            }*/
-            
             if (contentTypeBypass.startsWith("Remove")) {
                 headers.remove(i);
             } else if (!contentTypeBypass.startsWith("Keep")) {
                 headers.set(i, "Content-Type: " + contentTypeBypass);
                 contentInHeader = 1;
             }
+        } else if (headers.get(i).startsWith("Host:")) {
+            if (!hostNameBypass.startsWith("DefaultHostname")) {
+                headers.set(i, "Host: " + hostNameBypass);
+            }
         }
                 
-        /* Check to see if any WAF Bypass headers were already added, if so, don't add twice */    
-        /*} else if (headers.get(i).startsWith("X-Originating-IP:")) {
-            originIPExist = 1;
-        } else if (headers.get(i).startsWith("X-Forwarded-For:")) {
-            forwardForExist = 1;
-        } else if (headers.get(i).startsWith("X-Remote-IP:")) {
-            remoteIPExist = 1;
-        } else if (headers.get(i).startsWith("X-Remote-Addr:")) {
-            remoteAddrExist = 1;
-        }*/
+        /* Check to see if the bypass headers have already been set */
         for (int j = 0; j < bwafHeaders.size(); j++) {
             if (headers.get(i).startsWith(bwafHeaders.get(j))) {
                 bwafHeaderInit.set(j, 1);
@@ -220,31 +210,12 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         }
     }
     
-    /* If set to Content-Type: invalid, but Content-Type wasn't in request, then add */
-    /*if (contentInHeader == 0 && contentTypeBypass == 1) {
-        headers.add("Content-Type: invalid");
-    }*/
+    /* If set to a specific content type, but Content-Type wasn't in request, then add */
     if (contentInHeader == 0 && !contentTypeBypass.startsWith("Keep") && !contentTypeBypass.startsWith("Remove")) {
         headers.add("Content-Type: " + contentTypeBypass);
     }
     
     /* Add WAF Bypass headers if they don't already exist */
-    /*if (originIPExist == 0) {
-        headers.add("X-Originating-IP: " + bypassIP);
-    }
-    
-    if (forwardForExist == 0) {
-        headers.add("X-Forwarded-For: " + bypassIP);
-    }
-    
-    if (remoteIPExist == 0) {
-        headers.add("X-Remote-IP: " + bypassIP);
-    }
-    
-    if (remoteAddrExist == 0) {
-        headers.add("X-Remote-Addr: " + bypassIP);
-    }*/
-    
     for (int idx = 0; idx < bwafHeaderInit.size(); idx++) {
         if (bwafHeaderInit.get(idx) == 0) {
             headers.add(bwafHeaders.get(idx) + ": " + bypassIP);
