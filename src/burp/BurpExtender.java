@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.0.6
+ * Version:        0.0.7
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -46,12 +46,14 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String hostNameBypass = "DefaultHostname";
   private String pathInfoBypass = "NoPathInfo";
   private String pathObfuscationBypass = "NoObfuscation";
+  private String bypassRequestType = "All";
   private String defaultHttpVersion = "HTTP/1.1";
   private String defaultPathParam = "";
   private String defaultPathValue = "";
   private final List<String> bwafHeaders = Arrays.asList("X-Originating-IP", "X-Forwarded-For", "X-Remote-IP", "X-Remote-Addr");
   private final List<String> bwafPathInfo = Arrays.asList("NoPathInfo", "PathInfoInjection", "PathParametersInjection");
   private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
+  private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
   private final List<String> bwafPathObfuscation = Arrays.asList(
       "NoObfuscation",
       "//",
@@ -140,6 +142,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafCTDescLabel = new JLabel();
     JLabel bwafHostLabel = new JLabel();
     JLabel bwafHostDescLabel = new JLabel();
+    JLabel bwafReqTypesLabel = new JLabel();
+    JLabel bwafReqTypesDescLabel = new JLabel();
     JLabel bwafPathInfoLabel = new JLabel();
     JLabel bwafPathInfoDescLabel = new JLabel();
     JLabel bwafPathObfuscLabel = new JLabel();
@@ -148,6 +152,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JComboBox bwafPathInfoCbx = new JComboBox(bwafPathInfo.toArray());
     final JComboBox bwafPathObfuscCbx = new JComboBox(bwafPathObfuscation.toArray());
+    final JComboBox bwafReqTypesCbx = new JComboBox(bwafRequestTypes.toArray());
     final JTextField bwafIPText = new JTextField();
     final JTextField bwafHostText = new JTextField();
     JButton bwafSetHeaderBtn = new JButton("Set Configuration");
@@ -175,24 +180,31 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafHostText.setBounds(146, 82, 275, 26);
     bwafHostDescLabel.setBounds(441, 85, 600, 20);
     
+    /* Configure to path info and other certain request methods or all */
+    bwafReqTypesLabel.setText("Request Method:");
+    bwafReqTypesDescLabel.setText("Configure options below for all request methods, GET only, or POST only.");
+    bwafReqTypesLabel.setBounds(16, 120, 85, 20);
+    bwafReqTypesCbx.setBounds(146, 117, 275, 26);
+    bwafReqTypesDescLabel.setBounds(441, 120, 600, 20);
+    
     /* Set path info or parameters */
     bwafPathInfoLabel.setText("Path Info:");
     bwafPathInfoDescLabel.setText("Do nothing, add random path info at end of URL, or add random path parameters at end of URL.");
-    bwafPathInfoLabel.setBounds(16, 120, 85, 20);
-    bwafPathInfoCbx.setBounds(146, 117, 275, 26);
-    bwafPathInfoDescLabel.setBounds(441, 120, 600, 20);
+    bwafPathInfoLabel.setBounds(16, 155, 115, 20);
+    bwafPathInfoCbx.setBounds(146, 152, 275, 26);
+    bwafPathInfoDescLabel.setBounds(441, 155, 600, 20);
     
     /* Set last / to a new value */
     bwafPathObfuscLabel.setText("Path Obfuscation:");
     bwafPathObfuscDescLabel.setText("Do nothing or replace the last / in the request with one of these values.");
-    bwafPathObfuscLabel.setBounds(16, 155, 115, 20);
-    bwafPathObfuscCbx.setBounds(146, 152, 275, 26);
-    bwafPathObfuscDescLabel.setBounds(441, 155, 600, 20);
+    bwafPathObfuscLabel.setBounds(16, 190, 115, 20);
+    bwafPathObfuscCbx.setBounds(146, 187, 275, 26);
+    bwafPathObfuscDescLabel.setBounds(441, 190, 600, 20);
     
     /* Create button for setting options */
     bwafSetHeaderDescLabel.setText("Enable the WAF bypass configuration.");
-    bwafSetHeaderDescLabel.setBounds(441, 190, 600, 20);
-    bwafSetHeaderBtn.setBounds(146, 190, 275, 20);
+    bwafSetHeaderDescLabel.setBounds(441, 225, 600, 20);
+    bwafSetHeaderBtn.setBounds(146, 222, 275, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
@@ -200,8 +212,11 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         contentTypeBypass = (String)bwafCTCbx.getSelectedItem();
         pathInfoBypass = (String)bwafPathInfoCbx.getSelectedItem();
         pathObfuscationBypass = (String)bwafPathObfuscCbx.getSelectedItem();
+        bypassRequestType = (String)bwafReqTypesCbx.getSelectedItem();
         bwafCTCbx.setSelectedIndex(bwafCTCbx.getSelectedIndex());
         bwafPathInfoCbx.setSelectedIndex(bwafPathInfoCbx.getSelectedIndex());
+        bwafPathObfuscCbx.setSelectedIndex(bwafPathObfuscCbx.getSelectedIndex());
+        bwafReqTypesCbx.setSelectedIndex(bwafReqTypesCbx.getSelectedIndex());
         
         if (!contentTypeBypass.startsWith("NoPathInfo")) {
             defaultPathParam = setRand();
@@ -220,6 +235,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafCTCbx.setSelectedIndex(0);
     bwafHostText.setText(hostNameBypass);
     bwafPathInfoCbx.setSelectedIndex(0);
+    bwafPathObfuscCbx.setSelectedIndex(0);
+    bwafReqTypesCbx.setSelectedIndex(0);
 
     /* Add label and field to tab */
     bwafPanel.add(bwafIPLabel);
@@ -231,6 +248,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPanel.add(bwafHostLabel);
     bwafPanel.add(bwafHostDescLabel);
     bwafPanel.add(bwafHostText);
+    bwafPanel.add(bwafReqTypesLabel);
+    bwafPanel.add(bwafReqTypesDescLabel);
+    bwafPanel.add(bwafReqTypesCbx);
     bwafPanel.add(bwafPathInfoLabel);
     bwafPanel.add(bwafPathInfoDescLabel);
     bwafPanel.add(bwafPathInfoCbx);
@@ -312,40 +332,44 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         /* If this is the the first header (GET/POST with URL) check to see if we are modifying path, path info, or parameters */
         if (i == 0 && (headers.get(i).startsWith("GET ") || headers.get(i).startsWith("POST "))) {
 
-            /* Determine whether it was a GET or POST request, and use the correct method */
-            if (headers.get(i).startsWith("GET ")) {
-                reqMethod = "GET";
-            } else {
-                reqMethod = "POST";
-            }
-            
-            /* Obfuscate the last path (/) value */
-            if (!pathObfuscationBypass.startsWith("NoObfuscation")) {
+            /* Check request type, only process if a match is found */
+            if (bypassRequestType.startsWith("All") || (headers.get(i).startsWith("GET ") && bypassRequestType.startsWith("GET")) || (headers.get(i).startsWith("POST ") && bypassRequestType.startsWith("POST"))) {
                 
-                /* If there was a slash, replace last one with obfuscated version */
-                if (reqPath.contains("/")) {
-                    StringBuilder slashReplace = new StringBuilder(reqPath);
-                    slashReplace.replace(reqPath.lastIndexOf("/"), reqPath.lastIndexOf("/")+1, pathObfuscationBypass );
-                    newPath = slashReplace.toString();
-                    newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
-                    updateUrl = 1;
+                /* Determine whether it was a GET or POST request, and use the correct method */
+                if (headers.get(i).startsWith("GET ")) {
+                    reqMethod = "GET";
+                } else {
+                    reqMethod = "POST";
                 }
-            }
-        
-            /* Set path info in URL */
-            if (!pathInfoBypass.startsWith("NoPathInfo")) {
+            
+                /* Obfuscate the last path (/) value */
+                if (!pathObfuscationBypass.startsWith("NoObfuscation")) {
                 
-                /* Determine the right injection and set the new request */
-                if (pathInfoBypass.startsWith("PathInfoInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && newReq.isEmpty()) {
-                    newReq = reqMethod + " " + reqPath + "/" + defaultPathParam + newQuery + newRef + " " + defaultHttpVersion;
-                    updateUrl = 1;
-                } else if (pathInfoBypass.startsWith("PathInfoInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && !newReq.isEmpty()) {
-                    newReq = reqMethod + " " + newPath + "/" + defaultPathParam + newQuery + newRef + " " + defaultHttpVersion;
-                } else if (pathInfoBypass.startsWith("PathParametersInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && newReq.isEmpty()) {
-                    newReq = reqMethod + " " + reqPath + ";" + defaultPathParam + "=" + defaultPathValue + newQuery + newRef + " " + defaultHttpVersion;
-                    updateUrl = 1;
-                } else if (pathInfoBypass.startsWith("PathParametersInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && !newReq.isEmpty()) {
-                    newReq = reqMethod + " " + newPath + ";" + defaultPathParam + "=" + defaultPathValue + newQuery + newRef + " " + defaultHttpVersion;
+                    /* If there was a slash, replace last one with obfuscated version */
+                    if (reqPath.contains("/")) {
+                        StringBuilder slashReplace = new StringBuilder(reqPath);
+                        slashReplace.replace(reqPath.lastIndexOf("/"), reqPath.lastIndexOf("/")+1, pathObfuscationBypass );
+                        newPath = slashReplace.toString();
+                        newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                    }
+                }
+        
+                /* Set path info in URL */
+                if (!pathInfoBypass.startsWith("NoPathInfo")) {
+                
+                    /* Determine the right injection and set the new request */
+                    if (pathInfoBypass.startsWith("PathInfoInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && newReq.isEmpty()) {
+                        newReq = reqMethod + " " + reqPath + "/" + defaultPathParam + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                    } else if (pathInfoBypass.startsWith("PathInfoInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && !newReq.isEmpty()) {
+                        newReq = reqMethod + " " + newPath + "/" + defaultPathParam + newQuery + newRef + " " + defaultHttpVersion;
+                    } else if (pathInfoBypass.startsWith("PathParametersInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && newReq.isEmpty()) {
+                        newReq = reqMethod + " " + reqPath + ";" + defaultPathParam + "=" + defaultPathValue + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                    } else if (pathInfoBypass.startsWith("PathParametersInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && !newReq.isEmpty()) {
+                        newReq = reqMethod + " " + newPath + ";" + defaultPathParam + "=" + defaultPathValue + newQuery + newRef + " " + defaultHttpVersion;
+                    }
                 }
             }
         }
