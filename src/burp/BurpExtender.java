@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.0.7
+ * Version:        0.0.8
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -72,21 +72,42 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
       "invalid",
       "example",
       "multipart/",
+      "multipart/digest",
+      "multipart/digest; boundary=0000",
       "multipart/; boundary=0000",
       "multipart/fake",
+      "multipart/fake; boundary=0000",
       "multipart/mixed",
+      "multipart/mixed; boundary=0000",
       "multipart/alternative",
+      "multipart/alternative; boundary=0000",
       "multipart/related",
+      "multipart/related; boundary=0000",
       "multipart/form-data",
       "multipart/form-data; boundary=0000",
+      "multipart/form-data ; boundary=0000",
+      "multipart/form-data, boundary=0000",
       "multipart/form-data boundary=0000",
+      "multipart/form-data; boundary=\"0000\"",
+      "multipart/form-data; boundary=0000'",
       "multipart/fake; boundary=0000",
+      "multipart/fake ; boundary=0000",
+      "multipart/fake, boundary=0000",
+      "multipart/fake; boundary=\"0000\"",
+      "multipart/fake; boundary=0000'",
       "multipart/fake boundary=0000",
       "multipart/form-data-rand; boundary=0000",
       "multipart/form-data-rand boundary=0000",
+      "multipart/form-data-rand ; boundary=0000",
+      "multipart/form-data-rand, boundary=0000",
+      "multipart/form-data-rand; boundary=\"0000\"",
+      "multipart/form-data-rand; boundary=0000'",
       "multipart/signed",
+      "multipart/signed; boundary=0000",
       "multipart/encrypted",
+      "multipart/encrypted; boundary=0000",
       "multipart/example",
+      "multipart/example; boundary=0000",
       "text/cmd",
       "text/css",
       "text/csv",
@@ -183,7 +204,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     /* Configure to path info and other certain request methods or all */
     bwafReqTypesLabel.setText("Request Method:");
     bwafReqTypesDescLabel.setText("Configure options below for all request methods, GET only, or POST only.");
-    bwafReqTypesLabel.setBounds(16, 120, 85, 20);
+    bwafReqTypesLabel.setBounds(16, 120, 115, 20);
     bwafReqTypesCbx.setBounds(146, 117, 275, 26);
     bwafReqTypesDescLabel.setBounds(441, 120, 600, 20);
     
