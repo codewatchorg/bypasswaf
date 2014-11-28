@@ -15,13 +15,13 @@ Usage
 =====
 
 Steps include:
-<ul>
-<ol>1) Add extension to burp</ol>
-<ol>2) Create a session handling rule in Burp that invokes this extension</ol>
-<ol>3) Modify the scope to include applicable tools and URLs</ol>
-<ol>4) Configure the bypass options on the "Bypass WAF" tab</ol>
-<ol>5) Test away</ol>
-</ul>
+<ol>
+<li>Add extension to burp</li>
+<li>Create a session handling rule in Burp that invokes this extension</li>
+<li>Modify the scope to include applicable tools and URLs</li>
+<li>Configure the bypass options on the "Bypass WAF" tab</li>
+<li>Test away</li>
+</ol>
 
 More information can be found at: <a href="https://www.codewatch.org/blog/?p=408" target=_codewatch>https://www.codewatch.org/blog/?p=408</a>
 
