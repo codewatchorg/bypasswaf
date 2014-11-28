@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.0.8
+ * Version:        0.1.0
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -46,6 +46,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String hostNameBypass = "DefaultHostname";
   private String pathInfoBypass = "NoPathInfo";
   private String pathObfuscationBypass = "NoObfuscation";
+  private String paramObfuscationBypass = "None";
   private String bypassRequestType = "All";
   private String defaultHttpVersion = "HTTP/1.1";
   private String defaultPathParam = "";
@@ -54,6 +55,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private final List<String> bwafPathInfo = Arrays.asList("NoPathInfo", "PathInfoInjection", "PathParametersInjection");
   private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
   private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
+  private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%");
   private final List<String> bwafPathObfuscation = Arrays.asList(
       "NoObfuscation",
       "//",
@@ -170,10 +172,13 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafPathObfuscLabel = new JLabel();
     JLabel bwafPathObfuscDescLabel = new JLabel();
     JLabel bwafSetHeaderDescLabel = new JLabel();
+    JLabel bwafParamObfuscLabel = new JLabel();
+    JLabel bwafParamObfuscDescLabel = new JLabel();
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JComboBox bwafPathInfoCbx = new JComboBox(bwafPathInfo.toArray());
     final JComboBox bwafPathObfuscCbx = new JComboBox(bwafPathObfuscation.toArray());
     final JComboBox bwafReqTypesCbx = new JComboBox(bwafRequestTypes.toArray());
+    final JComboBox bwafParamObfuscCbx = new JComboBox(bwafParamObfuscation.toArray());
     final JTextField bwafIPText = new JTextField();
     final JTextField bwafHostText = new JTextField();
     JButton bwafSetHeaderBtn = new JButton("Set Configuration");
@@ -222,10 +227,17 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPathObfuscCbx.setBounds(146, 187, 275, 26);
     bwafPathObfuscDescLabel.setBounds(441, 190, 600, 20);
     
+    /* Add character to beginning of every parameter */
+    bwafParamObfuscLabel.setText("Param Obfuscation:");
+    bwafParamObfuscDescLabel.setText("Add the following character to the beginning of every parameter name.");
+    bwafParamObfuscLabel.setBounds(16, 225, 115, 20);
+    bwafParamObfuscCbx.setBounds(146, 222, 275, 20);
+    bwafParamObfuscDescLabel.setBounds(441, 225, 600, 20);
+    
     /* Create button for setting options */
     bwafSetHeaderDescLabel.setText("Enable the WAF bypass configuration.");
-    bwafSetHeaderDescLabel.setBounds(441, 225, 600, 20);
-    bwafSetHeaderBtn.setBounds(146, 222, 275, 20);
+    bwafSetHeaderDescLabel.setBounds(441, 260, 600, 20);
+    bwafSetHeaderBtn.setBounds(146, 257, 275, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
@@ -233,10 +245,12 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         contentTypeBypass = (String)bwafCTCbx.getSelectedItem();
         pathInfoBypass = (String)bwafPathInfoCbx.getSelectedItem();
         pathObfuscationBypass = (String)bwafPathObfuscCbx.getSelectedItem();
+        paramObfuscationBypass = (String)bwafParamObfuscCbx.getSelectedItem();
         bypassRequestType = (String)bwafReqTypesCbx.getSelectedItem();
         bwafCTCbx.setSelectedIndex(bwafCTCbx.getSelectedIndex());
         bwafPathInfoCbx.setSelectedIndex(bwafPathInfoCbx.getSelectedIndex());
         bwafPathObfuscCbx.setSelectedIndex(bwafPathObfuscCbx.getSelectedIndex());
+        bwafParamObfuscCbx.setSelectedIndex(bwafParamObfuscCbx.getSelectedIndex());
         bwafReqTypesCbx.setSelectedIndex(bwafReqTypesCbx.getSelectedIndex());
         
         if (!contentTypeBypass.startsWith("NoPathInfo")) {
@@ -257,6 +271,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafHostText.setText(hostNameBypass);
     bwafPathInfoCbx.setSelectedIndex(0);
     bwafPathObfuscCbx.setSelectedIndex(0);
+    bwafParamObfuscCbx.setSelectedIndex(0);
     bwafReqTypesCbx.setSelectedIndex(0);
 
     /* Add label and field to tab */
@@ -278,6 +293,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPanel.add(bwafPathObfuscLabel);
     bwafPanel.add(bwafPathObfuscDescLabel);
     bwafPanel.add(bwafPathObfuscCbx);
+    bwafPanel.add(bwafParamObfuscLabel);
+    bwafPanel.add(bwafParamObfuscDescLabel);
+    bwafPanel.add(bwafParamObfuscCbx);
     bwafPanel.add(bwafSetHeaderBtn);
     bwafPanel.add(bwafSetHeaderDescLabel);
     
@@ -390,6 +408,27 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                         updateUrl = 1;
                     } else if (pathInfoBypass.startsWith("PathParametersInjection") && !reqPath.contains(defaultPathParam) && !newQuery.contains(defaultPathParam) && !newReq.isEmpty()) {
                         newReq = reqMethod + " " + newPath + ";" + defaultPathParam + "=" + defaultPathValue + newQuery + newRef + " " + defaultHttpVersion;
+                    }
+                }
+                
+                /* Add special character to beginning of all parameter names */
+                if (!paramObfuscationBypass.startsWith("None")) {
+                    
+                    /* Determine the right injection and set the new request in URL */
+                    if (newQuery.startsWith("?") && !newQuery.startsWith("?" + paramObfuscationBypass) && newReq.isEmpty()) {
+                        String updQuery = newQuery.replaceFirst("\\?", "?" + paramObfuscationBypass);
+                        updQuery = updQuery.replaceAll("&", "&" + paramObfuscationBypass);
+                        newReq = reqMethod + " " + reqPath + "/" + defaultPathParam + updQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                    } else if (newQuery.startsWith("?") && !newQuery.startsWith("?" + paramObfuscationBypass) && !newReq.isEmpty()) {
+                        String updQuery = newQuery.replaceFirst("\\?", "?" + paramObfuscationBypass);
+                        updQuery = updQuery.replaceAll("&", "&" + paramObfuscationBypass);
+                        newReq = reqMethod + " " + newPath + "/" + defaultPathParam + updQuery + newRef + " " + defaultHttpVersion;
+                    }
+                    
+                    /* Determine the right injection and set the new request in POST body */
+                    if (!reqBody.startsWith(paramObfuscationBypass) && reqMethod.startsWith("POST")) {
+                        reqBody = paramObfuscationBypass + reqBody.replaceAll("&", "&" + paramObfuscationBypass);
                     }
                 }
             }
