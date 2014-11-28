@@ -43,6 +43,7 @@ Bypass WAF contains the following features:
 <ol>5) The path injection feature can leave a request unmodified, inject random path info information (/path/to/example.php/randomvalue?restofquery), or inject a random path parameter (/path/to/example.php;randomparam=randomvalue?resetofquery).  This can be used to bypass poorly written rules that rely on path information.</ol>
 <ol>6) The path obfuscation feature modifies the last forward slash in the path to a random value, or by default does nothing.  The last slash can be modified to one of many values that in many cases results in a still valid request but can bypass poorly written WAF rules that rely on path information.</ol>
 <ol>7) The paramater obfuscation feature is language specific. PHP will discard a + at the beginning of each parameter, but a poorly written WAF rule might be written for specific parameter names, thus ignoring parameters with a + at the beginning.  Similarly, ASP discards a % at the beginning of each parameter.</ol>
+<ol>8) The "Set Configuration" button activates all the settings that you have chosen.</ol>
 </ul>
 
 All of these features can be combined to provide multiple bypass options.
