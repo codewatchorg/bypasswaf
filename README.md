@@ -20,7 +20,7 @@ Steps include:
 <ol>2) Create a session handling rule in Burp that invokes this extension</ol>
 <ol>3) Modify the scope to include applicable tools and URLs</ol>
 <ol>4) Configure the bypass options on the "Bypass WAF" tab</ol>
-<ol>4) Test away</ol>
+<ol>5) Test away</ol>
 </ul>
 
 More information can be found at: <a href="https://www.codewatch.org/blog/?p=408" target=_codewatch>https://www.codewatch.org/blog/?p=408</a>
