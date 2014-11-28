@@ -43,7 +43,7 @@ A description of each feature follows:
 <li>The request type option allows the Burp user to only use the remaining bypass techniques on the given request method of "GET" or "POST", or to apply them on all requests.</li>
 <li>The path injection feature can leave a request unmodified, inject random path info information (/path/to/example.php/randomvalue?restofquery), or inject a random path parameter (/path/to/example.php;randomparam=randomvalue?resetofquery).  This can be used to bypass poorly written rules that rely on path information.</li>
 <li>The path obfuscation feature modifies the last forward slash in the path to a random value, or by default does nothing.  The last slash can be modified to one of many values that in many cases results in a still valid request but can bypass poorly written WAF rules that rely on path information.</li>
-<li>The paramater obfuscation feature is language specific. PHP will discard a + at the beginning of each parameter, but a poorly written WAF rule might be written for specific parameter names, thus ignoring parameters with a + at the beginning.  Similarly, ASP discards a % at the beginning of each parameter.</li>
+<li>The parameter obfuscation feature is language specific. PHP will discard a + at the beginning of each parameter, but a poorly written WAF rule might be written for specific parameter names, thus ignoring parameters with a + at the beginning.  Similarly, ASP discards a % at the beginning of each parameter.</li>
 <li>The "Set Configuration" button activates all the settings that you have chosen.</li>
 </ol>
 
