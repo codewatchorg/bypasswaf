@@ -29,7 +29,7 @@ More information can be found at: <a href="https://www.codewatch.org/blog/?p=408
 Features
 ========
 
-All of the features are base on Jason Haddix's work found <a href="http://h30499.www3.hp.com/t5/Fortify-Application-Security/Bypassing-web-application-firewalls-using-HTTP-headers/ba-p/6418366#.VGlMR-90wsd" target=_hp>here</a>, and Ivan Ristic's WAF bypass work found <a href="https://github.com/ironbee/waf-research" target=_git>here</a> and <a href="https://media.blackhat.com/bh-us-12/Briefings/Ristic/BH_US_12_Ristic_Protocol_Level_WP.pdf" target=_blackhat>here</a>.
+All of the features are based on Jason Haddix's work found <a href="http://h30499.www3.hp.com/t5/Fortify-Application-Security/Bypassing-web-application-firewalls-using-HTTP-headers/ba-p/6418366#.VGlMR-90wsd" target=_hp>here</a>, and Ivan Ristic's WAF bypass work found <a href="https://github.com/ironbee/waf-research" target=_git>here</a> and <a href="https://media.blackhat.com/bh-us-12/Briefings/Ristic/BH_US_12_Ristic_Protocol_Level_WP.pdf" target=_blackhat>here</a>.
 
 Bypass WAF contains the following features:
 
@@ -53,7 +53,7 @@ All of these features can be combined to provide multiple bypass options.
 Future
 ======
 
-I intend to add the following features, at a minimum, in future versions:
+I intend to add the following features, at a minimum, to future versions:
 <ol>
 <li>HTTP Parameter Pollution - Automatically perform HPP attacks on GET/POST parameters.</li>
 <li>HTTP Requests Smuggling - Automatically perform an HTTP request smuggling attack on each request where a dummy request is added to the beginning and the real (smuggled) request is added at the end.</li>
