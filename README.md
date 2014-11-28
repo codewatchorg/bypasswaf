@@ -51,11 +51,13 @@ All of these features can be combined to provide multiple bypass options.
 Future
 ======
 
-I intend the following features, at a minimum, in future versions:
+I intend to add the following features, at a minimum, in future versions:
 <ul>
-<ol>HTTP Parameter Pollution - Automatically perform HPP attacks on GET/POST parameters.</ol>
-<ol>HTTP Requests Smuggling - Automatically perform an HTTP request smuggling attack on each request where a dummy request is added to the beginning and the real (smuggled) request is added at the end.</ol>
+<ol>1) HTTP Parameter Pollution - Automatically perform HPP attacks on GET/POST parameters.</ol>
+<ol>2) HTTP Requests Smuggling - Automatically perform an HTTP request smuggling attack on each request where a dummy request is added to the beginning and the real (smuggled) request is added at the end.</ol>
 </ul>
+
+I have been adding features rapidly and it is very possible that the above will be in the code by the time anyone actually reads this.
 
 
 Note
