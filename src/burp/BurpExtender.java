@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.1.3
+ * Version:        0.1.4
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -40,7 +40,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.1.3";
+  private static final String bypassWafVersion = "0.1.4";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -66,10 +66,24 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
       "/./",
       "/random/../",
       "\\",
+      "/.//",
+      "/./\\",
+      "/.\\",
+      "/random/..//",
+      "/random/.././/",
+      "/random/.././\\",
+      "/random/../.\\",
       "%2f%2f",
       "%2f.%2f",
       "%2frandom%2f..%2f",
-      "%5c"
+      "%5c",
+      "%2f.%2f%2f",
+      "%2f.%2f\\",
+      "%2f.\\",
+      "%2frandom%2f..%2f%2f",
+      "%2frandom%2f..%2f.%2f%2f",
+      "%2frandom%2f..%2f.%2f%5c",
+      "%2frandom%2f..%2f.%5c"
   );
   
   private final List<String> bwafCTHeaders = Arrays.asList(
@@ -96,6 +110,14 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
       "multipart/form-data boundary=0000",
       "multipart/form-data; boundary=\"0000\"",
       "multipart/form-data; boundary=0000'",
+      "multipart/form-data; boundary911=0000",
+      "multipart/form-data; boundary =0000",
+      "multipart/form-data; boundary= 0000",
+      "multipart/form-data; boundary=0000 1111",
+      "multipart/form-data; boundary=0000,1111",
+      "multipart/form-data; boundary=0000 boundary=1111",
+      "multipart/form-data; boundary=0000, boundary=1111",
+      "multipart/form-data; boundary=0000; boundary=1111",
       "multipart/fake; boundary=0000",
       "multipart/fake ; boundary=0000",
       "multipart/fake, boundary=0000",
@@ -198,65 +220,65 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafIPLabel.setText("Header IP:");
     bwafIPDescLabel.setText("Set IP for X-Originating-IP, X-Forwarded-For, X-Remote-IP, and X-Remote-Addr headers.");
     bwafIPLabel.setBounds(16, 15, 75, 20);
-    bwafIPText.setBounds(146, 12, 275, 26);
-    bwafIPDescLabel.setBounds(441, 15, 600, 20);
+    bwafIPText.setBounds(146, 12, 340, 26);
+    bwafIPDescLabel.setBounds(506, 15, 600, 20);
     
     /* Set Content-Type headers */
     bwafCTLabel.setText("Content-Type:");
     bwafCTDescLabel.setText("Keep current Content-Type, remove it, or replace with one of these values.");
     bwafCTLabel.setBounds(16, 50, 85, 20);
-    bwafCTCbx.setBounds(146, 47, 275, 26);
-    bwafCTDescLabel.setBounds(441, 50, 600, 20);
+    bwafCTCbx.setBounds(146, 47, 340, 26);
+    bwafCTDescLabel.setBounds(506, 50, 600, 20);
     
     /* Set host header */
     bwafHostLabel.setText("Host Header:");
     bwafHostDescLabel.setText("Modify what is sent in the Host header.");
     bwafHostLabel.setBounds(16, 85, 85, 20);
-    bwafHostText.setBounds(146, 82, 275, 26);
-    bwafHostDescLabel.setBounds(441, 85, 600, 20);
+    bwafHostText.setBounds(146, 82, 340, 26);
+    bwafHostDescLabel.setBounds(506, 85, 600, 20);
     
     /* Configure to path info and other certain request methods or all */
     bwafReqTypesLabel.setText("Request Method:");
     bwafReqTypesDescLabel.setText("Configure options below for all request methods, GET only, or POST only.");
     bwafReqTypesLabel.setBounds(16, 120, 115, 20);
-    bwafReqTypesCbx.setBounds(146, 117, 275, 26);
-    bwafReqTypesDescLabel.setBounds(441, 120, 600, 20);
+    bwafReqTypesCbx.setBounds(146, 117, 340, 26);
+    bwafReqTypesDescLabel.setBounds(506, 120, 600, 20);
     
     /* Set path info or parameters */
     bwafPathInfoLabel.setText("Path Info:");
     bwafPathInfoDescLabel.setText("Do nothing, add random path info at end of URL, or add random path parameters at end of URL.");
     bwafPathInfoLabel.setBounds(16, 155, 115, 20);
-    bwafPathInfoCbx.setBounds(146, 152, 275, 26);
-    bwafPathInfoDescLabel.setBounds(441, 155, 600, 20);
+    bwafPathInfoCbx.setBounds(146, 152, 340, 26);
+    bwafPathInfoDescLabel.setBounds(506, 155, 600, 20);
     
     /* Set last / to a new value */
     bwafPathObfuscLabel.setText("Path Obfuscation:");
     bwafPathObfuscDescLabel.setText("Do nothing or replace the last / in the request with one of these values.");
     bwafPathObfuscLabel.setBounds(16, 190, 115, 20);
-    bwafPathObfuscCbx.setBounds(146, 187, 275, 26);
-    bwafPathObfuscDescLabel.setBounds(441, 190, 600, 20);
+    bwafPathObfuscCbx.setBounds(146, 187, 340, 26);
+    bwafPathObfuscDescLabel.setBounds(506, 190, 600, 20);
     
     /* Add character to beginning of every parameter */
     bwafParamObfuscLabel.setText("Param Obfuscation:");
     bwafParamObfuscDescLabel.setText("Add the following character to the beginning of every parameter name.");
     bwafParamObfuscLabel.setBounds(16, 225, 115, 20);
-    bwafParamObfuscCbx.setBounds(146, 222, 275, 26);
-    bwafParamObfuscDescLabel.setBounds(441, 225, 600, 20);
+    bwafParamObfuscCbx.setBounds(146, 222, 340, 26);
+    bwafParamObfuscDescLabel.setBounds(506, 225, 600, 20);
     
     /* HTTP Parameter Pollution check */
     bwafHppCheckLabel.setText("HPP:");
     bwafHppCheckLabel.setBounds(16, 260, 115, 20);
     bwafHppCheck.setBounds(146, 257, 100, 26);
     bwafHppLocationLabel.setText("Location:");
-    bwafHppLocationLabel.setBounds(256, 260, 85, 20);
-    bwafHppLocationCbx.setBounds(346, 257, 75, 26);
+    bwafHppLocationLabel.setBounds(281, 260, 85, 20);
+    bwafHppLocationCbx.setBounds(371, 257, 115, 26);
     bwafHppCheckDescLabel.setText("Perform HPP, keeping the original payload in either the First/Last (duplicate) parameter value, replace the other value with a 1.");
-    bwafHppCheckDescLabel.setBounds(441, 260, 750, 20);
+    bwafHppCheckDescLabel.setBounds(506, 260, 750, 20);
     
     /* Create button for setting options */
     bwafSetHeaderDescLabel.setText("Enable the WAF bypass configuration.");
-    bwafSetHeaderDescLabel.setBounds(441, 295, 600, 20);
-    bwafSetHeaderBtn.setBounds(146, 292, 275, 20);
+    bwafSetHeaderDescLabel.setBounds(506, 295, 600, 20);
+    bwafSetHeaderBtn.setBounds(146, 292, 340, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
