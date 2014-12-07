@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.1.4
+ * Version:        0.1.6
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -33,14 +33,16 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.PrintWriter;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Random;
+import java.net.URLDecoder;
 
 public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab {
 
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.1.4";
+  private static final String bypassWafVersion = "0.1.6";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -49,6 +51,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String pathObfuscationBypass = "NoObfuscation";
   private String paramObfuscationBypass = "None";
   private String bypassRequestType = "All";
+  private String charEncoding = "None";
   private Integer bypassHpp = 0;
   private String bypassHppLocation = "First";
   private String defaultHttpVersion = "HTTP/1.1";
@@ -57,6 +60,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private final List<String> bwafHeaders = Arrays.asList("X-Originating-IP", "X-Forwarded-For", "X-Remote-IP", "X-Remote-Addr");
   private final List<String> bwafPathInfo = Arrays.asList("NoPathInfo", "PathInfoInjection", "PathParametersInjection");
   private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
+  private final HashMap<String, String> bwafCharEncodings = new HashMap();
+  private final List<String> bwafCharEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double %u");
   private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
   private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%");
   private final List<String> bwafHppLocation = Arrays.asList("First", "Last");
@@ -80,10 +85,51 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
       "%2f.%2f%2f",
       "%2f.%2f\\",
       "%2f.\\",
+      "%2f.%5c",
+      "%2f.%2f%5c",
       "%2frandom%2f..%2f%2f",
       "%2frandom%2f..%2f.%2f%2f",
       "%2frandom%2f..%2f.%2f%5c",
-      "%2frandom%2f..%2f.%5c"
+      "%2frandom%2f..%2f.%5c",
+      "%252f%252f",
+      "%252f.%252f",
+      "%252frandom%252f..%252f",
+      "%255c",
+      "%252f.%252f%252f",
+      "%252f.%252f\\",
+      "%252f.\\",
+      "%252f.%255c",
+      "%252f.%252f%255c",
+      "%252frandom%252f..%252f%252f",
+      "%252frandom%252f..%252f.%252f%252f",
+      "%252frandom%252f..%252f.%252f%255c",
+      "%252frandom%252f..%252f.%255c",
+      "%u002f%u002f",
+      "%u002f.%u002f",
+      "%u002frandom%u002f..%u002f",
+      "%u005c",
+      "%u002f.%u002f%u002f",
+      "%u002f.%u002f\\",
+      "%u002f.\\",
+      "%u002f.%u005c",
+      "%u002f.%u002f%u005c",
+      "%u002frandom%u002f..%u002f%u002f",
+      "%u002frandom%u002f..%u002f.%u002f%u002f",
+      "%u002frandom%u002f..%u002f.%u002f%u005c",
+      "%u002frandom%u002f..%u002f.%u005c",
+      "%002f%002f",
+      "%002f.%002f",
+      "%002frandom%002f..%002f",
+      "%005c",
+      "%002f.%002f%002f",
+      "%002f.%002f\\",
+      "%002f.\\",
+      "%002f.%005c",
+      "%002f.%002f%005c",
+      "%002frandom%002f..%002f%002f",
+      "%002frandom%002f..%002f.%002f%002f",
+      "%002frandom%002f..%002f.%002f%005c",
+      "%002frandom%002f..%002f.%005c"
   );
   
   private final List<String> bwafCTHeaders = Arrays.asList(
@@ -168,7 +214,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
       StringBuilder randString = new StringBuilder();
       Random random = new Random();
       
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 10; i++) {
           char c = randChars[random.nextInt(randChars.length)];
           randString.append(c);
       }
@@ -182,6 +228,13 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     extHelpers = extCallbacks.getHelpers();
     extCallbacks.setExtensionName("Bypass WAF");
     extCallbacks.registerSessionHandlingAction(this);
+    
+    /* Initialize encodings */
+    bwafCharEncodings.put("None", "None");
+    bwafCharEncodings.put("URL", "%");
+    bwafCharEncodings.put("%u", "%u00");
+    bwafCharEncodings.put("Double URL", "%25");
+    bwafCharEncodings.put("Double %u", "%u0025%u00");
     
     /* Create a tab to configure header values */
     bwafPanel = new JPanel(null);
@@ -203,12 +256,15 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafHppCheckLabel = new JLabel();
     JLabel bwafHppCheckDescLabel = new JLabel();
     JLabel bwafHppLocationLabel = new JLabel();
+    JLabel bwafCharEncodeLabel = new JLabel();
+    JLabel bwafCharEncodeDescLabel = new JLabel();
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JComboBox bwafPathInfoCbx = new JComboBox(bwafPathInfo.toArray());
     final JComboBox bwafPathObfuscCbx = new JComboBox(bwafPathObfuscation.toArray());
     final JComboBox bwafReqTypesCbx = new JComboBox(bwafRequestTypes.toArray());
     final JComboBox bwafParamObfuscCbx = new JComboBox(bwafParamObfuscation.toArray());
     final JComboBox bwafHppLocationCbx = new JComboBox(bwafHppLocation.toArray());
+    final JComboBox bwafCharEncodeCbx = new JComboBox(bwafCharEncodeTypes.toArray());
     final JCheckBox bwafHppCheck = new JCheckBox("HPP");
     final JTextField bwafIPText = new JTextField();
     final JTextField bwafHostText = new JTextField();
@@ -275,10 +331,17 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafHppCheckDescLabel.setText("Perform HPP, keeping the original payload in either the First/Last (duplicate) parameter value, replace the other value with a 1.");
     bwafHppCheckDescLabel.setBounds(506, 260, 750, 20);
     
+    /* Character encoding obfuscation */
+    bwafCharEncodeLabel.setText("Character Encodings:");
+    bwafCharEncodeDescLabel.setText("Encode a single character in the URL with the selected encoding type.");
+    bwafCharEncodeLabel.setBounds(16, 295, 115, 20);
+    bwafCharEncodeCbx.setBounds(146, 292, 340, 26);
+    bwafCharEncodeDescLabel.setBounds(506, 295, 600, 20);
+    
     /* Create button for setting options */
     bwafSetHeaderDescLabel.setText("Enable the WAF bypass configuration.");
-    bwafSetHeaderDescLabel.setBounds(506, 295, 600, 20);
-    bwafSetHeaderBtn.setBounds(146, 292, 340, 20);
+    bwafSetHeaderDescLabel.setBounds(506, 330, 600, 20);
+    bwafSetHeaderBtn.setBounds(146, 327, 340, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
@@ -295,6 +358,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         bwafParamObfuscCbx.setSelectedIndex(bwafParamObfuscCbx.getSelectedIndex());
         bwafReqTypesCbx.setSelectedIndex(bwafReqTypesCbx.getSelectedIndex());
         bwafHppLocationCbx.setSelectedIndex(bwafHppLocationCbx.getSelectedIndex());
+        bwafCharEncodeCbx.setSelectedIndex(bwafCharEncodeCbx.getSelectedIndex());
         
         if (!pathInfoBypass.startsWith("NoPathInfo")) {
             defaultPathParam = setRand();
@@ -315,6 +379,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         } else {
             bypassHpp = 0;
         }
+        
+        charEncoding = bwafCharEncodings.get(bwafCharEncodeCbx.getItemAt(bwafCharEncodeCbx.getSelectedIndex()));
       }
     });
     
@@ -327,6 +393,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafParamObfuscCbx.setSelectedIndex(0);
     bwafReqTypesCbx.setSelectedIndex(0);
     bwafHppLocationCbx.setSelectedIndex(0);
+    bwafCharEncodeCbx.setSelectedIndex(0);
 
     /* Add label and field to tab */
     bwafPanel.add(bwafIPLabel);
@@ -357,6 +424,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPanel.add(bwafHppLocationCbx);
     bwafPanel.add(bwafSetHeaderBtn);
     bwafPanel.add(bwafSetHeaderDescLabel);
+    bwafPanel.add(bwafCharEncodeLabel);
+    bwafPanel.add(bwafCharEncodeDescLabel);
+    bwafPanel.add(bwafCharEncodeCbx);
     
     /* Add the tab to Burp */
     extCallbacks.customizeUiComponent(bwafPanel);
@@ -381,6 +451,11 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   /* Action to set in a session rule */
   @Override
   public String getActionName(){ return "Bypass WAF"; }
+  
+  /* Hex encoding for URLs */
+  private static char toHex(int ch) {
+      return (char) (ch < 10 ? '0' + ch : 'A' + ch - 10);
+  }
 
   /* Action for extension to perform */
   @Override
@@ -427,6 +502,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                 headers.set(i, "Host: " + hostNameBypass);
             }
         }
+        
         /* If this is the the first header (GET/POST with URL) check to see if we are modifying path, path info, or parameters */
         if (i == 0 && (headers.get(i).startsWith("GET ") || headers.get(i).startsWith("POST "))) {
 
@@ -439,14 +515,89 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                 } else {
                     reqMethod = "POST";
                 }
+                
+                /* Perform character encoding obfuscation */
+                if (reqPath.contains("/") && !charEncoding.contains("None")) {
+                    StringBuilder encodeReplace = new StringBuilder(reqPath);
+                    char encChar1;
+                    char encChar2;
+                    char encChar3;
+                    
+                    if (reqPath.lastIndexOf("/") > 0) {                    
+                        encChar1 = reqPath.charAt(reqPath.lastIndexOf("/")-1);
+                    } else {
+                        encChar1 = '/';
+                    }
+                    
+                    if (reqPath.length() > 1) {
+                        encChar2 = reqPath.charAt(reqPath.lastIndexOf("/")+1);
+                    } else {
+                        encChar2 = '/';
+                    }
+                    
+                    if (reqPath.length() > 2) {
+                        encChar3 = reqPath.charAt(reqPath.lastIndexOf("/")+2);
+                    } else {
+                        encChar3 = '/';
+                    }
+                    
+                    StringBuilder encChar = new StringBuilder();
+                    
+                    if (reqPath.lastIndexOf("/") > 0 && !String.valueOf(encChar1).contains("/") && !String.valueOf(encChar1).contains("?") && !String.valueOf(encChar1).contains("=")) {
+                    
+                        /* Add encoding to character before / */
+                        encChar.append(charEncoding);
+                        encChar.append(toHex(encChar1 / 16));
+                        encChar.append(toHex(encChar1 % 16));
+                        
+                        /* Replace character in URL string */
+                        encodeReplace.replace(reqPath.lastIndexOf("/")-1, reqPath.lastIndexOf("/"), encChar.toString() );
+                        newPath = encodeReplace.toString();
+                        newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                        
+                    } else if (reqPath.length() > 2 && !String.valueOf(encChar2).contains("/") && !String.valueOf(encChar2).contains("?") && !String.valueOf(encChar2).contains("=")) {
+                        
+                        /* Add encoding to character after / */
+                        encChar.append(charEncoding);
+                        encChar.append(toHex(encChar2 / 16));
+                        encChar.append(toHex(encChar2 % 16));
+                        
+                        /* Replace character in URL string */
+                        encodeReplace.replace(reqPath.lastIndexOf("/")+1, reqPath.lastIndexOf("/")+2, encChar.toString() );
+                        newPath = encodeReplace.toString();
+                        newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                        
+                    } else if (reqPath.length() > 3 && !String.valueOf(encChar3).contains("/") && !String.valueOf(encChar3).contains("?") && !String.valueOf(encChar3).contains("=")) {
+                        
+                        /* Add encoding to  second character after / */
+                        encChar.append(charEncoding);
+                        encChar.append(toHex(encChar3 / 16));
+                        encChar.append(toHex(encChar3 % 16));
+                        
+                        /* Replace character in URL string */
+                        encodeReplace.replace(reqPath.lastIndexOf("/")+2, reqPath.lastIndexOf("/")+3, encChar.toString() );
+                        newPath = encodeReplace.toString();
+                        newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                        
+                    }
+                }
             
                 /* Obfuscate the last path (/) value */
                 if (!pathObfuscationBypass.startsWith("NoObfuscation")) {
                 
                     /* If there was a slash, replace last one with obfuscated version */
-                    if (reqPath.contains("/")) {
+                    if (reqPath.contains("/") && newPath.isEmpty()) {
                         StringBuilder slashReplace = new StringBuilder(reqPath);
                         slashReplace.replace(reqPath.lastIndexOf("/"), reqPath.lastIndexOf("/")+1, pathObfuscationBypass );
+                        newPath = slashReplace.toString();
+                        newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                    } else if (reqPath.contains("/")) {
+                        StringBuilder slashReplace = new StringBuilder(newPath);
+                        slashReplace.replace(newPath.lastIndexOf("/"), newPath.lastIndexOf("/")+1, pathObfuscationBypass );
                         newPath = slashReplace.toString();
                         newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
                         updateUrl = 1;
