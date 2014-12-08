@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.1.6
+ * Version:        0.1.7
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -42,7 +42,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.1.6";
+  private static final String bypassWafVersion = "0.1.7";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -57,13 +57,14 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String defaultHttpVersion = "HTTP/1.1";
   private String defaultPathParam = "";
   private String defaultPathValue = "";
+  private String defaultHppValue = "1";
   private final List<String> bwafHeaders = Arrays.asList("X-Originating-IP", "X-Forwarded-For", "X-Remote-IP", "X-Remote-Addr");
   private final List<String> bwafPathInfo = Arrays.asList("NoPathInfo", "PathInfoInjection", "PathParametersInjection");
   private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
   private final HashMap<String, String> bwafCharEncodings = new HashMap();
   private final List<String> bwafCharEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double %u");
   private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
-  private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%");
+  private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%", "%20");
   private final List<String> bwafHppLocation = Arrays.asList("First", "Last");
   private final List<String> bwafPathObfuscation = Arrays.asList(
       "NoObfuscation",
@@ -258,6 +259,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafHppLocationLabel = new JLabel();
     JLabel bwafCharEncodeLabel = new JLabel();
     JLabel bwafCharEncodeDescLabel = new JLabel();
+    JLabel bwafHppValueLabel = new JLabel();
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JComboBox bwafPathInfoCbx = new JComboBox(bwafPathInfo.toArray());
     final JComboBox bwafPathObfuscCbx = new JComboBox(bwafPathObfuscation.toArray());
@@ -268,6 +270,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     final JCheckBox bwafHppCheck = new JCheckBox("HPP");
     final JTextField bwafIPText = new JTextField();
     final JTextField bwafHostText = new JTextField();
+    final JTextField bwafHppValueText = new JTextField();
     JButton bwafSetHeaderBtn = new JButton("Set Configuration");
     printOut = new PrintWriter(extCallbacks.getStdout(), true);
     printHeader();
@@ -324,17 +327,20 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     /* HTTP Parameter Pollution check */
     bwafHppCheckLabel.setText("HPP:");
     bwafHppCheckLabel.setBounds(16, 260, 115, 20);
-    bwafHppCheck.setBounds(146, 257, 100, 26);
-    bwafHppLocationLabel.setText("Location:");
-    bwafHppLocationLabel.setBounds(281, 260, 85, 20);
-    bwafHppLocationCbx.setBounds(371, 257, 115, 26);
-    bwafHppCheckDescLabel.setText("Perform HPP, keeping the original payload in either the First/Last (duplicate) parameter value, replace the other value with a 1.");
-    bwafHppCheckDescLabel.setBounds(506, 260, 750, 20);
+    bwafHppCheck.setBounds(146, 257, 50, 26);
+    bwafHppLocationLabel.setText("Place:");
+    bwafHppLocationLabel.setBounds(216, 260, 40, 20);
+    bwafHppLocationCbx.setBounds(276, 257, 70, 26);
+    bwafHppValueLabel.setText("Value:");
+    bwafHppValueLabel.setBounds(366, 260, 40, 20);
+    bwafHppValueText.setBounds(426, 257, 60, 26);
+    bwafHppCheckDescLabel.setText("Perform HPP, keeping the original payload in either the First/Last (duplicate) parameter value, replace the other value with a 1 or chosen value.");
+    bwafHppCheckDescLabel.setBounds(506, 260, 850, 20);
     
     /* Character encoding obfuscation */
     bwafCharEncodeLabel.setText("Character Encodings:");
     bwafCharEncodeDescLabel.setText("Encode a single character in the URL with the selected encoding type.");
-    bwafCharEncodeLabel.setBounds(16, 295, 115, 20);
+    bwafCharEncodeLabel.setBounds(16, 295, 140, 20);
     bwafCharEncodeCbx.setBounds(146, 292, 340, 26);
     bwafCharEncodeDescLabel.setBounds(506, 295, 600, 20);
     
@@ -376,6 +382,12 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         /* Is HPP enabled? */
         if (bwafHppCheck.isSelected()){
             bypassHpp = 1;
+            
+            if (!bwafHppValueText.getText().isEmpty()) {
+                defaultHppValue = bwafHppValueText.getText();
+            } else {
+                defaultHppValue = "1";
+            }
         } else {
             bypassHpp = 0;
         }
@@ -422,6 +434,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPanel.add(bwafHppCheckDescLabel);
     bwafPanel.add(bwafHppLocationLabel);
     bwafPanel.add(bwafHppLocationCbx);
+    bwafPanel.add(bwafHppValueLabel);
+    bwafPanel.add(bwafHppValueText);
     bwafPanel.add(bwafSetHeaderBtn);
     bwafPanel.add(bwafSetHeaderDescLabel);
     bwafPanel.add(bwafCharEncodeLabel);
@@ -543,7 +557,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                     
                     StringBuilder encChar = new StringBuilder();
                     
-                    if (reqPath.lastIndexOf("/") > 0 && !String.valueOf(encChar1).contains("/") && !String.valueOf(encChar1).contains("?") && !String.valueOf(encChar1).contains("=")) {
+                    if (reqPath.lastIndexOf("/") > 0 && !String.valueOf(encChar1).contains("/") 
+                            && !String.valueOf(encChar1).contains("?") && !String.valueOf(encChar1).contains("=")
+                            && !String.valueOf(encChar1).contains(";") && !String.valueOf(encChar1).contains("&")) {
                     
                         /* Add encoding to character before / */
                         encChar.append(charEncoding);
@@ -556,7 +572,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                         newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
                         updateUrl = 1;
                         
-                    } else if (reqPath.length() > 2 && !String.valueOf(encChar2).contains("/") && !String.valueOf(encChar2).contains("?") && !String.valueOf(encChar2).contains("=")) {
+                    } else if (reqPath.length() > 2 && !String.valueOf(encChar2).contains("/") 
+                            && !String.valueOf(encChar2).contains("?") && !String.valueOf(encChar2).contains("=")
+                            && !String.valueOf(encChar2).contains(";") && !String.valueOf(encChar2).contains("&")) {
                         
                         /* Add encoding to character after / */
                         encChar.append(charEncoding);
@@ -569,7 +587,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                         newReq = reqMethod + " " + newPath + newQuery + newRef + " " + defaultHttpVersion;
                         updateUrl = 1;
                         
-                    } else if (reqPath.length() > 3 && !String.valueOf(encChar3).contains("/") && !String.valueOf(encChar3).contains("?") && !String.valueOf(encChar3).contains("=")) {
+                    } else if (reqPath.length() > 3 && !String.valueOf(encChar3).contains("/") 
+                            && !String.valueOf(encChar3).contains("?") && !String.valueOf(encChar3).contains("=")
+                            && !String.valueOf(encChar3).contains(";") && !String.valueOf(encChar3).contains("&")) {
                         
                         /* Add encoding to  second character after / */
                         encChar.append(charEncoding);
@@ -695,11 +715,11 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                         if (newQuery.contains("&") && newQuery.contains("=")) {
                             for (String pageFields: newQuery.split("&")) {
                                 String[] pageParams = pageFields.split("=");
-                                updQuery = updQuery + pageParams[0] + "=" + "1&";
+                                updQuery = updQuery + pageParams[0] + "=" + defaultHppValue + "&";
                             }
                         } else if (newQuery.contains("=")) {
                             String[] pageParams = newQuery.split("=");
-                            updQuery = updQuery + pageParams[0] + "=" + "1&";
+                            updQuery = updQuery + pageParams[0] + "=" + defaultHppValue + "&";
                         }
                         
                         /* Figure out whether to set first or duplicate param to 1 */
@@ -722,18 +742,18 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                     } else if (!newReq.isEmpty() && newQuery.startsWith("?")) {
                         String updQuery = "";
                         
-                        /* Get the params so that we can either change the first or last to 1 */
+                        /* Get the params so that we can either change the first or last to 1 or value */
                         if (newQuery.contains("&") && newQuery.contains("=")) {
                             for (String pageFields: newQuery.split("&")) {
                                 String[] pageParams = pageFields.split("=");
-                                updQuery = updQuery + pageParams[0] + "=" + "1&";
+                                updQuery = updQuery + pageParams[0] + "=" + defaultHppValue + "&";
                             }
                         } else if (newQuery.contains("=")) {
                             String[] pageParams = newQuery.split("=");
-                            updQuery = updQuery + pageParams[0] + "=" + "1&";
+                            updQuery = updQuery + pageParams[0] + "=" + defaultHppValue + "&";
                         }
                         
-                        /* Figure out whether to set first or duplicate param to 1 */
+                        /* Figure out whether to set first or duplicate param to 1 or value */
                         if (bypassHppLocation.startsWith("First")) {
                             newQuery = newQuery + "&" + updQuery.substring(1, updQuery.length()-1);
                         } else {
@@ -759,11 +779,11 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                         if (reqBody.contains("&") && reqBody.contains("=")) {
                             for (String pageFields: reqBody.split("&")) {
                                 String[] pageParams = pageFields.split("=");
-                                updQuery = updQuery + pageParams[0] + "=" + "1&";
+                                updQuery = updQuery + pageParams[0] + "=" + defaultHppValue + "&";
                             }
                         } else if (reqBody.contains("=")) {
                             String[] pageParams = reqBody.split("=");
-                            updQuery = updQuery + pageParams[0] + "=" + "1&";
+                            updQuery = updQuery + pageParams[0] + "=" + defaultHppValue + "&";
                         }
                         
                         /* Figure out whether to set first or duplicate param to 1 */
