@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.1.7
+ * Version:        0.1.8
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -33,6 +33,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.PrintWriter;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 import java.net.URLDecoder;
@@ -42,7 +43,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.1.7";
+  private static final String bypassWafVersion = "0.1.8";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -53,6 +54,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String bypassRequestType = "All";
   private String charEncoding = "None";
   private Integer bypassHpp = 0;
+  private Integer defaultSizeValue = 100;
   private String bypassHppLocation = "First";
   private String defaultHttpVersion = "HTTP/1.1";
   private String defaultPathParam = "";
@@ -66,6 +68,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
   private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%", "%20");
   private final List<String> bwafHppLocation = Arrays.asList("First", "Last");
+  private final List<String> bwafPathInfoSize = new ArrayList();
+  private final List<String> bwafPathObfuscSize = new ArrayList();
   private final List<String> bwafPathObfuscation = Arrays.asList(
       "NoObfuscation",
       "//",
@@ -210,12 +214,12 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   );
   
   /* Create a random values for obfuscation functions */
-  public String setRand() {
+  public String setRand(int sz) {
       char[] randChars = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
       StringBuilder randString = new StringBuilder();
       Random random = new Random();
       
-      for (int i = 0; i < 10; i++) {
+      for (int i = 0; i <= sz; i++) {
           char c = randChars[random.nextInt(randChars.length)];
           randString.append(c);
       }
@@ -237,6 +241,12 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafCharEncodings.put("Double URL", "%25");
     bwafCharEncodings.put("Double %u", "%u0025%u00");
     
+    /* Intialize size arrays */
+    for (int sz = 1; sz <= defaultSizeValue; sz++) {
+        bwafPathInfoSize.add(String.valueOf(sz));
+        bwafPathObfuscSize.add(String.valueOf(sz));
+    }
+    
     /* Create a tab to configure header values */
     bwafPanel = new JPanel(null);
     JLabel bwafIPLabel = new JLabel();
@@ -249,8 +259,10 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafReqTypesDescLabel = new JLabel();
     JLabel bwafPathInfoLabel = new JLabel();
     JLabel bwafPathInfoDescLabel = new JLabel();
+    JLabel bwafPathInfoSizeLabel = new JLabel();
     JLabel bwafPathObfuscLabel = new JLabel();
     JLabel bwafPathObfuscDescLabel = new JLabel();
+    JLabel bwafPathObfuscSizeLabel = new JLabel();
     JLabel bwafSetHeaderDescLabel = new JLabel();
     JLabel bwafParamObfuscLabel = new JLabel();
     JLabel bwafParamObfuscDescLabel = new JLabel();
@@ -262,7 +274,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafHppValueLabel = new JLabel();
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JComboBox bwafPathInfoCbx = new JComboBox(bwafPathInfo.toArray());
+    final JComboBox bwafPathInfoSizeCbx = new JComboBox(bwafPathInfoSize.toArray());
     final JComboBox bwafPathObfuscCbx = new JComboBox(bwafPathObfuscation.toArray());
+    final JComboBox bwafPathObfuscSizeCbx = new JComboBox(bwafPathObfuscSize.toArray());
     final JComboBox bwafReqTypesCbx = new JComboBox(bwafRequestTypes.toArray());
     final JComboBox bwafParamObfuscCbx = new JComboBox(bwafParamObfuscation.toArray());
     final JComboBox bwafHppLocationCbx = new JComboBox(bwafHppLocation.toArray());
@@ -279,75 +293,81 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafIPLabel.setText("Header IP:");
     bwafIPDescLabel.setText("Set IP for X-Originating-IP, X-Forwarded-For, X-Remote-IP, and X-Remote-Addr headers.");
     bwafIPLabel.setBounds(16, 15, 75, 20);
-    bwafIPText.setBounds(146, 12, 340, 26);
-    bwafIPDescLabel.setBounds(506, 15, 600, 20);
+    bwafIPText.setBounds(146, 12, 310, 26);
+    bwafIPDescLabel.setBounds(606, 15, 600, 20);
     
     /* Set Content-Type headers */
     bwafCTLabel.setText("Content-Type:");
     bwafCTDescLabel.setText("Keep current Content-Type, remove it, or replace with one of these values.");
     bwafCTLabel.setBounds(16, 50, 85, 20);
-    bwafCTCbx.setBounds(146, 47, 340, 26);
-    bwafCTDescLabel.setBounds(506, 50, 600, 20);
+    bwafCTCbx.setBounds(146, 47, 310, 26);
+    bwafCTDescLabel.setBounds(606, 50, 600, 20);
     
     /* Set host header */
     bwafHostLabel.setText("Host Header:");
     bwafHostDescLabel.setText("Modify what is sent in the Host header.");
     bwafHostLabel.setBounds(16, 85, 85, 20);
-    bwafHostText.setBounds(146, 82, 340, 26);
-    bwafHostDescLabel.setBounds(506, 85, 600, 20);
+    bwafHostText.setBounds(146, 82, 310, 26);
+    bwafHostDescLabel.setBounds(606, 85, 600, 20);
     
     /* Configure to path info and other certain request methods or all */
     bwafReqTypesLabel.setText("Request Method:");
     bwafReqTypesDescLabel.setText("Configure options below for all request methods, GET only, or POST only.");
     bwafReqTypesLabel.setBounds(16, 120, 115, 20);
-    bwafReqTypesCbx.setBounds(146, 117, 340, 26);
-    bwafReqTypesDescLabel.setBounds(506, 120, 600, 20);
+    bwafReqTypesCbx.setBounds(146, 117, 310, 26);
+    bwafReqTypesDescLabel.setBounds(606, 120, 600, 20);
     
     /* Set path info or parameters */
     bwafPathInfoLabel.setText("Path Info:");
-    bwafPathInfoDescLabel.setText("Do nothing, add random path info at end of URL, or add random path parameters at end of URL.");
+    bwafPathInfoDescLabel.setText("Do nothing, add random path info at end of URL, or add random path parameters at end of URL.  Set the size of the random data.");
     bwafPathInfoLabel.setBounds(16, 155, 115, 20);
-    bwafPathInfoCbx.setBounds(146, 152, 340, 26);
-    bwafPathInfoDescLabel.setBounds(506, 155, 600, 20);
+    bwafPathInfoCbx.setBounds(146, 152, 310, 26);
+    bwafPathInfoSizeLabel.setText("Size:");
+    bwafPathInfoSizeLabel.setBounds(476, 155, 40, 20);
+    bwafPathInfoSizeCbx.setBounds(526, 152, 60, 26);
+    bwafPathInfoDescLabel.setBounds(606, 155, 800, 20);
     
     /* Set last / to a new value */
     bwafPathObfuscLabel.setText("Path Obfuscation:");
-    bwafPathObfuscDescLabel.setText("Do nothing or replace the last / in the request with one of these values.");
+    bwafPathObfuscDescLabel.setText("Do nothing or replace the last / in the request with one of these values.  Set the size of the random value where applicable.");
     bwafPathObfuscLabel.setBounds(16, 190, 115, 20);
-    bwafPathObfuscCbx.setBounds(146, 187, 340, 26);
-    bwafPathObfuscDescLabel.setBounds(506, 190, 600, 20);
+    bwafPathObfuscCbx.setBounds(146, 187, 310, 26);
+    bwafPathObfuscSizeLabel.setText("Size:");
+    bwafPathObfuscSizeLabel.setBounds(476, 190, 40, 20);
+    bwafPathObfuscSizeCbx.setBounds(526, 187, 60, 26);
+    bwafPathObfuscDescLabel.setBounds(606, 190, 850, 20);
     
     /* Add character to beginning of every parameter */
     bwafParamObfuscLabel.setText("Param Obfuscation:");
     bwafParamObfuscDescLabel.setText("Add the following character to the beginning of every parameter name.");
     bwafParamObfuscLabel.setBounds(16, 225, 115, 20);
-    bwafParamObfuscCbx.setBounds(146, 222, 340, 26);
-    bwafParamObfuscDescLabel.setBounds(506, 225, 600, 20);
+    bwafParamObfuscCbx.setBounds(146, 222, 310, 26);
+    bwafParamObfuscDescLabel.setBounds(606, 225, 600, 20);
     
     /* HTTP Parameter Pollution check */
     bwafHppCheckLabel.setText("HPP:");
     bwafHppCheckLabel.setBounds(16, 260, 115, 20);
     bwafHppCheck.setBounds(146, 257, 50, 26);
     bwafHppLocationLabel.setText("Place:");
-    bwafHppLocationLabel.setBounds(216, 260, 40, 20);
-    bwafHppLocationCbx.setBounds(276, 257, 70, 26);
+    bwafHppLocationLabel.setBounds(256, 260, 40, 20);
+    bwafHppLocationCbx.setBounds(316, 257, 140, 26);
     bwafHppValueLabel.setText("Value:");
-    bwafHppValueLabel.setBounds(366, 260, 40, 20);
-    bwafHppValueText.setBounds(426, 257, 60, 26);
+    bwafHppValueLabel.setBounds(476, 260, 40, 20);
+    bwafHppValueText.setBounds(526, 257, 60, 26);
     bwafHppCheckDescLabel.setText("Perform HPP, keeping the original payload in either the First/Last (duplicate) parameter value, replace the other value with a 1 or chosen value.");
-    bwafHppCheckDescLabel.setBounds(506, 260, 850, 20);
+    bwafHppCheckDescLabel.setBounds(606, 260, 850, 20);
     
     /* Character encoding obfuscation */
     bwafCharEncodeLabel.setText("Character Encodings:");
     bwafCharEncodeDescLabel.setText("Encode a single character in the URL with the selected encoding type.");
     bwafCharEncodeLabel.setBounds(16, 295, 140, 20);
-    bwafCharEncodeCbx.setBounds(146, 292, 340, 26);
-    bwafCharEncodeDescLabel.setBounds(506, 295, 600, 20);
+    bwafCharEncodeCbx.setBounds(146, 292, 310, 26);
+    bwafCharEncodeDescLabel.setBounds(606, 295, 600, 20);
     
     /* Create button for setting options */
     bwafSetHeaderDescLabel.setText("Enable the WAF bypass configuration.");
-    bwafSetHeaderDescLabel.setBounds(506, 330, 600, 20);
-    bwafSetHeaderBtn.setBounds(146, 327, 340, 20);
+    bwafSetHeaderDescLabel.setBounds(606, 330, 600, 20);
+    bwafSetHeaderBtn.setBounds(146, 327, 310, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
@@ -365,10 +385,12 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         bwafReqTypesCbx.setSelectedIndex(bwafReqTypesCbx.getSelectedIndex());
         bwafHppLocationCbx.setSelectedIndex(bwafHppLocationCbx.getSelectedIndex());
         bwafCharEncodeCbx.setSelectedIndex(bwafCharEncodeCbx.getSelectedIndex());
+        bwafPathInfoSizeCbx.setSelectedIndex(bwafPathInfoSizeCbx.getSelectedIndex());
+        bwafPathObfuscSizeCbx.setSelectedIndex(bwafPathObfuscSizeCbx.getSelectedIndex());
         
         if (!pathInfoBypass.startsWith("NoPathInfo")) {
-            defaultPathParam = setRand();
-            defaultPathValue = setRand();
+            defaultPathParam = setRand(bwafPathInfoSizeCbx.getSelectedIndex());
+            defaultPathValue = setRand(bwafPathInfoSizeCbx.getSelectedIndex());
         } else {
             defaultPathParam = "";
             defaultPathValue = "";
@@ -376,7 +398,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         
         /* Check if it was one of the random values */
         if (pathObfuscationBypass.contains("random")) {
-            pathObfuscationBypass = pathObfuscationBypass.replace("random", setRand());
+            pathObfuscationBypass = pathObfuscationBypass.replace("random", setRand(bwafPathObfuscSizeCbx.getSelectedIndex()));
         }
         
         /* Is HPP enabled? */
@@ -406,6 +428,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafReqTypesCbx.setSelectedIndex(0);
     bwafHppLocationCbx.setSelectedIndex(0);
     bwafCharEncodeCbx.setSelectedIndex(0);
+    bwafPathInfoSizeCbx.setSelectedIndex(9);
+    bwafPathObfuscSizeCbx.setSelectedIndex(9);
 
     /* Add label and field to tab */
     bwafPanel.add(bwafIPLabel);
@@ -423,9 +447,13 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPanel.add(bwafPathInfoLabel);
     bwafPanel.add(bwafPathInfoDescLabel);
     bwafPanel.add(bwafPathInfoCbx);
+    bwafPanel.add(bwafPathInfoSizeLabel);
+    bwafPanel.add(bwafPathInfoSizeCbx);
     bwafPanel.add(bwafPathObfuscLabel);
     bwafPanel.add(bwafPathObfuscDescLabel);
     bwafPanel.add(bwafPathObfuscCbx);
+    bwafPanel.add(bwafPathObfuscSizeLabel);
+    bwafPanel.add(bwafPathObfuscSizeCbx);
     bwafPanel.add(bwafParamObfuscLabel);
     bwafPanel.add(bwafParamObfuscDescLabel);
     bwafPanel.add(bwafParamObfuscCbx);
