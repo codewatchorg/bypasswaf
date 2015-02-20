@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.1.8
+ * Version:        0.2.0
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -43,7 +43,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.1.8";
+  private static final String bypassWafVersion = "0.2.0";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -53,6 +53,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String paramObfuscationBypass = "None";
   private String bypassRequestType = "All";
   private String charEncoding = "None";
+  private String spaceEncoding = "None";
+  private String spacePayload = "None";
   private Integer bypassHpp = 0;
   private Integer defaultSizeValue = 100;
   private String bypassHppLocation = "First";
@@ -64,9 +66,13 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private final List<String> bwafPathInfo = Arrays.asList("NoPathInfo", "PathInfoInjection", "PathParametersInjection");
   private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
   private final HashMap<String, String> bwafCharEncodings = new HashMap();
+  private final HashMap<String, String> bwafQueryEncodings = new HashMap();
+  private final HashMap<String, String> bwafSpacePayloads = new HashMap();
   private final List<String> bwafCharEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double %u");
+  private final List<String> bwafQueryEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double %u", "Hex");
+  private final List<String> bwafSpaceTypes = Arrays.asList("Null", "Tab", "NL", "CR", "VTab", "NB");
   private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
-  private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%", "%20");
+  private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%", "%20", "%00");
   private final List<String> bwafHppLocation = Arrays.asList("First", "Last");
   private final List<String> bwafPathInfoSize = new ArrayList();
   private final List<String> bwafPathObfuscSize = new ArrayList();
@@ -234,12 +240,28 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     extCallbacks.setExtensionName("Bypass WAF");
     extCallbacks.registerSessionHandlingAction(this);
     
-    /* Initialize encodings */
+    /* Initialize encodings for URL character */
     bwafCharEncodings.put("None", "None");
     bwafCharEncodings.put("URL", "%");
     bwafCharEncodings.put("%u", "%u00");
     bwafCharEncodings.put("Double URL", "%25");
     bwafCharEncodings.put("Double %u", "%u0025%u00");
+
+    /* Initialize encodings for spaces in query parameters */
+    bwafQueryEncodings.put("None", "None");
+    bwafQueryEncodings.put("URL", "%");
+    bwafQueryEncodings.put("%u", "%u00");
+    bwafQueryEncodings.put("Double URL", "%25");
+    bwafQueryEncodings.put("Double %u", "%u0025%u00");
+    bwafQueryEncodings.put("Hex", "\\x");
+    
+    /* Initialize space types */
+    bwafSpacePayloads.put("Null", "00");
+    bwafSpacePayloads.put("Tab", "09");
+    bwafSpacePayloads.put("NL", "0A");
+    bwafSpacePayloads.put("CR", "0D");
+    bwafSpacePayloads.put("VTab", "0B");
+    bwafSpacePayloads.put("NB", "A0");
     
     /* Intialize size arrays */
     for (int sz = 1; sz <= defaultSizeValue; sz++) {
@@ -271,6 +293,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     JLabel bwafHppLocationLabel = new JLabel();
     JLabel bwafCharEncodeLabel = new JLabel();
     JLabel bwafCharEncodeDescLabel = new JLabel();
+    JLabel bwafQueryEncodeLabel = new JLabel();
+    JLabel bwafQueryEncodeDescLabel = new JLabel();
+    JLabel bwafSpacePayloadLabel = new JLabel();
     JLabel bwafHppValueLabel = new JLabel();
     final JComboBox bwafCTCbx = new JComboBox(bwafCTHeaders.toArray());
     final JComboBox bwafPathInfoCbx = new JComboBox(bwafPathInfo.toArray());
@@ -281,6 +306,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     final JComboBox bwafParamObfuscCbx = new JComboBox(bwafParamObfuscation.toArray());
     final JComboBox bwafHppLocationCbx = new JComboBox(bwafHppLocation.toArray());
     final JComboBox bwafCharEncodeCbx = new JComboBox(bwafCharEncodeTypes.toArray());
+    final JComboBox bwafQueryEncodeCbx = new JComboBox(bwafQueryEncodeTypes.toArray());
+    final JComboBox bwafSpacePayloadCbx = new JComboBox(bwafSpaceTypes.toArray());
     final JCheckBox bwafHppCheck = new JCheckBox("HPP");
     final JTextField bwafIPText = new JTextField();
     final JTextField bwafHostText = new JTextField();
@@ -364,10 +391,20 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafCharEncodeCbx.setBounds(146, 292, 310, 26);
     bwafCharEncodeDescLabel.setBounds(606, 295, 600, 20);
     
+    /* Query space encoding obfuscation */
+    bwafQueryEncodeLabel.setText("Space Encodings:");
+    bwafQueryEncodeDescLabel.setText("Encode spaces in query parameters with misinterpreted values (nulls, tabs, new lines, carriage returns, vert tabs, and non-breaking spaces).");
+    bwafQueryEncodeLabel.setBounds(16, 330, 140, 20);
+    bwafQueryEncodeCbx.setBounds(146, 327, 115, 26);
+    bwafSpacePayloadLabel.setText("Type:");
+    bwafSpacePayloadLabel.setBounds(286, 330, 45, 20);
+    bwafSpacePayloadCbx.setBounds(341, 327, 115, 26);
+    bwafQueryEncodeDescLabel.setBounds(606, 330, 850, 20);
+    
     /* Create button for setting options */
     bwafSetHeaderDescLabel.setText("Enable the WAF bypass configuration.");
-    bwafSetHeaderDescLabel.setBounds(606, 330, 600, 20);
-    bwafSetHeaderBtn.setBounds(146, 327, 310, 20);
+    bwafSetHeaderDescLabel.setBounds(606, 365, 600, 20);
+    bwafSetHeaderBtn.setBounds(146, 363, 310, 20);
     bwafSetHeaderBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         bypassIP = bwafIPText.getText();
@@ -385,6 +422,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         bwafReqTypesCbx.setSelectedIndex(bwafReqTypesCbx.getSelectedIndex());
         bwafHppLocationCbx.setSelectedIndex(bwafHppLocationCbx.getSelectedIndex());
         bwafCharEncodeCbx.setSelectedIndex(bwafCharEncodeCbx.getSelectedIndex());
+        bwafQueryEncodeCbx.setSelectedIndex(bwafQueryEncodeCbx.getSelectedIndex());
+        bwafSpacePayloadCbx.setSelectedIndex(bwafSpacePayloadCbx.getSelectedIndex());
         bwafPathInfoSizeCbx.setSelectedIndex(bwafPathInfoSizeCbx.getSelectedIndex());
         bwafPathObfuscSizeCbx.setSelectedIndex(bwafPathObfuscSizeCbx.getSelectedIndex());
         
@@ -415,6 +454,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         }
         
         charEncoding = bwafCharEncodings.get(bwafCharEncodeCbx.getItemAt(bwafCharEncodeCbx.getSelectedIndex()));
+        spaceEncoding = bwafQueryEncodings.get(bwafQueryEncodeCbx.getItemAt(bwafQueryEncodeCbx.getSelectedIndex()));
+        spacePayload = spaceEncoding + bwafSpacePayloads.get(bwafSpacePayloadCbx.getItemAt(bwafSpacePayloadCbx.getSelectedIndex()));
       }
     });
     
@@ -428,6 +469,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafReqTypesCbx.setSelectedIndex(0);
     bwafHppLocationCbx.setSelectedIndex(0);
     bwafCharEncodeCbx.setSelectedIndex(0);
+    bwafQueryEncodeCbx.setSelectedIndex(0);
+    bwafSpacePayloadCbx.setSelectedIndex(0);
     bwafPathInfoSizeCbx.setSelectedIndex(9);
     bwafPathObfuscSizeCbx.setSelectedIndex(9);
 
@@ -469,6 +512,11 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafPanel.add(bwafCharEncodeLabel);
     bwafPanel.add(bwafCharEncodeDescLabel);
     bwafPanel.add(bwafCharEncodeCbx);
+    bwafPanel.add(bwafQueryEncodeLabel);
+    bwafPanel.add(bwafQueryEncodeDescLabel);
+    bwafPanel.add(bwafQueryEncodeCbx);
+    bwafPanel.add(bwafSpacePayloadLabel);
+    bwafPanel.add(bwafSpacePayloadCbx);
     
     /* Add the tab to Burp */
     extCallbacks.customizeUiComponent(bwafPanel);
@@ -731,6 +779,103 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                     /* Determine the right injection and set the new request in POST body */
                     if (!reqBody.startsWith(paramObfuscationBypass) && reqMethod.startsWith("POST")) {
                         reqBody = paramObfuscationBypass + reqBody.replaceAll("&", "&" + paramObfuscationBypass);
+                    }
+                }
+                
+                /* Replace space characters with specially encoded non-standard space characters */
+                if (!spaceEncoding.startsWith("None")) {
+                    if (newReq.isEmpty() && newQuery.startsWith("?")) {
+                        String updQuery = "";
+                        
+                        /* Get the params so that we can change the spaces in each */
+                        if (newQuery.contains("&") && newQuery.contains("=")) {
+                            for (String pageFields: newQuery.split("&")) {
+                                String[] pageParams = pageFields.split("=");
+                                String updParam = pageParams[1].replaceAll("\\+", spacePayload);
+                                updParam = updParam.replaceAll("%2[bB]", spacePayload);
+                                updParam = updParam.replaceAll("\\s+", spacePayload);
+                                updParam = updParam.replaceAll("%20", spacePayload);
+                                updQuery = updQuery + pageParams[0] + "=" + updParam + "&";
+                            }
+                        } else if (newQuery.contains("=")) {
+                            String[] pageParams = newQuery.split("=");
+                            String updParam = pageParams[1].replaceAll("\\+", spacePayload);
+                            updParam = updParam.replaceAll("%2[bB]", spacePayload);
+                            updParam = updParam.replaceAll("\\s+", spacePayload);
+                            updParam = updParam.replaceAll("%20", spacePayload);
+                            updQuery = pageParams[0] + "=" + updParam + "&";
+                        }
+                        
+                        newQuery = "?" + updQuery.substring(1, updQuery.length()-1);
+                        String updPath = "";
+                        
+                        if (newPath.isEmpty()) {
+                            updPath = reqPath;
+                        } else {
+                            updPath = newPath;
+                        }
+                        
+                        newReq = reqMethod + " " + updPath + newQuery + newRef + " " + defaultHttpVersion;
+                        updateUrl = 1;
+                    } else if (!newReq.isEmpty() && newQuery.startsWith("?")) {
+                        String updQuery = "";
+                        
+                        /* Get the params so that we can change the spaces in each */
+                        if (newQuery.contains("&") && newQuery.contains("=")) {
+                            for (String pageFields: newQuery.split("&")) {
+                                String[] pageParams = pageFields.split("=");
+                                String updParam = pageParams[1].replaceAll("\\+", spacePayload);
+                                updParam = updParam.replaceAll("%2[bB]", spacePayload);
+                                updParam = updParam.replaceAll("\\s+", spacePayload);
+                                updParam = updParam.replaceAll("%20", spacePayload);
+                                updQuery = updQuery + pageParams[0] + "=" + updParam + "&";
+                            }
+                        } else if (newQuery.contains("=")) {
+                            String[] pageParams = newQuery.split("=");
+                            String updParam = pageParams[1].replaceAll("\\+", spacePayload);
+                            updParam = updParam.replaceAll("%2[bB]", spacePayload);
+                            updParam = updParam.replaceAll("\\s+", spacePayload);
+                            updParam = updParam.replaceAll("%20", spacePayload);
+                            updQuery = pageParams[0] + "=" + updParam + "&";;
+                        }
+                        
+                        newQuery = "?" + updQuery.substring(1, updQuery.length()-1);
+                        String updPath = "";
+                        
+                        if (newPath.isEmpty()) {
+                            updPath = reqPath;
+                        } else {
+                            updPath = newPath;
+                        }
+                        
+                        newReq = reqMethod + " " + updPath + newQuery + newRef + " " + defaultHttpVersion;
+                    }
+                    
+                    /* Determine the right injection and set the new request in POST body */
+                    if (reqMethod.startsWith("POST")) {
+                        String updQuery = "";
+                        
+                        /* Get the params so that we can change the spaces in each */
+                        if (reqBody.contains("&") && reqBody.contains("=")) {
+                            for (String pageFields: reqBody.split("&")) {
+                                String[] pageParams = pageFields.split("=");
+                                String updParam = pageParams[1].replaceAll("\\+", spacePayload);
+                                updParam = updParam.replaceAll("%2[bB]", spacePayload);
+                                updParam = updParam.replaceAll("\\s+", spacePayload);
+                                updParam = updParam.replaceAll("%20", spacePayload);
+                                updQuery = updQuery + pageParams[0] + "=" + updParam + "&";
+                            }
+                        } else if (reqBody.contains("=")) {
+                            String[] pageParams = reqBody.split("=");
+                            String updParam = pageParams[1].replaceAll("\\+", spacePayload);
+                            updParam = updParam.replaceAll("%2[bB]", spacePayload);
+                            updParam = updParam.replaceAll("\\s+", spacePayload);
+                            updParam = updParam.replaceAll("%20", spacePayload);
+                            updQuery = updQuery + pageParams[0] + "=" + updParam + "&";
+                        }
+                        
+                        newQuery = updQuery.substring(0, updQuery.length()-1);
+                        reqBody = newQuery;
                     }
                 }
                 
