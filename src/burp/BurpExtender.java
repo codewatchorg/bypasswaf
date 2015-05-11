@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.2.0
+ * Version:        0.2.1
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -43,7 +43,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.2.0";
+  private static final String bypassWafVersion = "0.2.1";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -68,8 +68,8 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private final HashMap<String, String> bwafCharEncodings = new HashMap();
   private final HashMap<String, String> bwafQueryEncodings = new HashMap();
   private final HashMap<String, String> bwafSpacePayloads = new HashMap();
-  private final List<String> bwafCharEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double %u");
-  private final List<String> bwafQueryEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double %u", "Hex");
+  private final List<String> bwafCharEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double Double URL", "Double %u");
+  private final List<String> bwafQueryEncodeTypes = Arrays.asList("None", "URL", "%u", "Double URL", "Double Double", "Double %u", "Hex");
   private final List<String> bwafSpaceTypes = Arrays.asList("Null", "Tab", "NL", "CR", "VTab", "NB");
   private final List<String> bwafRequestTypes = Arrays.asList("All", "GET", "POST");
   private final List<String> bwafParamObfuscation = Arrays.asList("None", "+", "%", "%20", "%00");
@@ -219,7 +219,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
       "application/x-www-form-urlencoded-rand"
   );
   
-  /* Create a random values for obfuscation functions */
+  /* Create random values for obfuscation functions */
   public String setRand(int sz) {
       char[] randChars = "abcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
       StringBuilder randString = new StringBuilder();
@@ -245,6 +245,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafCharEncodings.put("URL", "%");
     bwafCharEncodings.put("%u", "%u00");
     bwafCharEncodings.put("Double URL", "%25");
+    bwafCharEncodings.put("Double Double URL", "%25%");
     bwafCharEncodings.put("Double %u", "%u0025%u00");
 
     /* Initialize encodings for spaces in query parameters */
@@ -252,6 +253,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     bwafQueryEncodings.put("URL", "%");
     bwafQueryEncodings.put("%u", "%u00");
     bwafQueryEncodings.put("Double URL", "%25");
+    bwafQueryEncodings.put("Double Double", "%25%");
     bwafQueryEncodings.put("Double %u", "%u0025%u00");
     bwafQueryEncodings.put("Hex", "\\x");
     
@@ -455,7 +457,20 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
         
         charEncoding = bwafCharEncodings.get(bwafCharEncodeCbx.getItemAt(bwafCharEncodeCbx.getSelectedIndex()));
         spaceEncoding = bwafQueryEncodings.get(bwafQueryEncodeCbx.getItemAt(bwafQueryEncodeCbx.getSelectedIndex()));
-        spacePayload = spaceEncoding + bwafSpacePayloads.get(bwafSpacePayloadCbx.getItemAt(bwafSpacePayloadCbx.getSelectedIndex()));
+        
+        /* Check to see if double double */
+        if (spaceEncoding.contains("%25%")) {
+            String initPayload = bwafSpacePayloads.get(bwafSpacePayloadCbx.getItemAt(bwafSpacePayloadCbx.getSelectedIndex()));
+            StringBuilder encChar = new StringBuilder();
+            encChar.append(toHex(initPayload.charAt(0) / 16));
+            encChar.append(toHex(initPayload.charAt(0) % 16));
+            encChar.append('%');
+            encChar.append(toHex(initPayload.charAt(1) / 16));
+            encChar.append(toHex(initPayload.charAt(1) % 16));
+            spacePayload = spaceEncoding + encChar;
+        } else {
+            spacePayload = spaceEncoding + bwafSpacePayloads.get(bwafSpacePayloadCbx.getItemAt(bwafSpacePayloadCbx.getSelectedIndex()));
+        }
       }
     });
     
@@ -636,11 +651,24 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                     if (reqPath.lastIndexOf("/") > 0 && !String.valueOf(encChar1).contains("/") 
                             && !String.valueOf(encChar1).contains("?") && !String.valueOf(encChar1).contains("=")
                             && !String.valueOf(encChar1).contains(";") && !String.valueOf(encChar1).contains("&")) {
-                    
+
                         /* Add encoding to character before / */
                         encChar.append(charEncoding);
-                        encChar.append(toHex(encChar1 / 16));
-                        encChar.append(toHex(encChar1 % 16));
+                        
+                        /* Check to see if double double */
+                        if (charEncoding.contains("%25%")) {
+                            StringBuilder firstEncode = new StringBuilder();
+                            firstEncode.append(toHex(encChar1 / 16));
+                            firstEncode.append(toHex(encChar1 % 16));
+                            encChar.append(toHex(firstEncode.charAt(0) / 16));
+                            encChar.append(toHex(firstEncode.charAt(0) % 16));
+                            encChar.append('%');
+                            encChar.append(toHex(firstEncode.charAt(1) / 16));
+                            encChar.append(toHex(firstEncode.charAt(1) % 16));
+                        } else {
+                            encChar.append(toHex(encChar1 / 16));
+                            encChar.append(toHex(encChar1 % 16));
+                        }
                         
                         /* Replace character in URL string */
                         encodeReplace.replace(reqPath.lastIndexOf("/")-1, reqPath.lastIndexOf("/"), encChar.toString() );
@@ -654,8 +682,21 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                         
                         /* Add encoding to character after / */
                         encChar.append(charEncoding);
-                        encChar.append(toHex(encChar2 / 16));
-                        encChar.append(toHex(encChar2 % 16));
+                        
+                        /* Check to see if double double */
+                        if (charEncoding.contains("%25%")) {
+                            StringBuilder firstEncode = new StringBuilder();
+                            firstEncode.append(toHex(encChar2 / 16));
+                            firstEncode.append(toHex(encChar2 % 16));
+                            encChar.append(toHex(firstEncode.charAt(0) / 16));
+                            encChar.append(toHex(firstEncode.charAt(0) % 16));
+                            encChar.append('%');
+                            encChar.append(toHex(firstEncode.charAt(1) / 16));
+                            encChar.append(toHex(firstEncode.charAt(1) % 16));
+                        } else {
+                            encChar.append(toHex(encChar2 / 16));
+                            encChar.append(toHex(encChar2 % 16));
+                        }
                         
                         /* Replace character in URL string */
                         encodeReplace.replace(reqPath.lastIndexOf("/")+1, reqPath.lastIndexOf("/")+2, encChar.toString() );
@@ -667,10 +708,24 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                             && !String.valueOf(encChar3).contains("?") && !String.valueOf(encChar3).contains("=")
                             && !String.valueOf(encChar3).contains(";") && !String.valueOf(encChar3).contains("&")) {
                         
+                        printOut.println("Entered the third encoding char check");
                         /* Add encoding to  second character after / */
                         encChar.append(charEncoding);
-                        encChar.append(toHex(encChar3 / 16));
-                        encChar.append(toHex(encChar3 % 16));
+                        
+                        /* Check to see if double double */
+                        if (charEncoding.contains("%25%")) {
+                            StringBuilder firstEncode = new StringBuilder();
+                            firstEncode.append(toHex(encChar3 / 16));
+                            firstEncode.append(toHex(encChar3 % 16));
+                            encChar.append(toHex(firstEncode.charAt(0) / 16));
+                            encChar.append(toHex(firstEncode.charAt(0) % 16));
+                            encChar.append('%');
+                            encChar.append(toHex(firstEncode.charAt(1) / 16));
+                            encChar.append(toHex(firstEncode.charAt(1) % 16));
+                        } else {
+                            encChar.append(toHex(encChar3 / 16));
+                            encChar.append(toHex(encChar3 % 16));
+                        }
                         
                         /* Replace character in URL string */
                         encodeReplace.replace(reqPath.lastIndexOf("/")+2, reqPath.lastIndexOf("/")+3, encChar.toString() );
