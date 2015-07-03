@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.2.1
+ * Version:        0.2.2
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -43,7 +43,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.2.1";
+  private static final String bypassWafVersion = "0.2.2";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -708,7 +708,6 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
                             && !String.valueOf(encChar3).contains("?") && !String.valueOf(encChar3).contains("=")
                             && !String.valueOf(encChar3).contains(";") && !String.valueOf(encChar3).contains("&")) {
                         
-                        printOut.println("Entered the third encoding char check");
                         /* Add encoding to  second character after / */
                         encChar.append(charEncoding);
                         
