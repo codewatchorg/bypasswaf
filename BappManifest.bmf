@@ -7,5 +7,5 @@ MinPlatformVersion: 0
 ProOnly: False
 Author: Josh Berry
 ShortDescription: Adds headers useful for bypassing some WAF devices.
-EntryPoint: build/libs/bypasswaf-all.jar
+EntryPoint: build/libs/bypass-waf-all.jar
 BuildCommand: gradle fatJar
