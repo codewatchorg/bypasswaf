@@ -1,6 +1,7 @@
 Uuid: ae2611da3bbc4687953a1f4ba6a4e04c
 ExtensionType: 1
 Name: Bypass WAF
+RepoName: bypass-waf
 ScreenVersion: 0.2.2
 SerialVersion: 4
 MinPlatformVersion: 0
