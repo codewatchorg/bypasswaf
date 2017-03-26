@@ -8,6 +8,7 @@ Add headers to all Burp requests to bypass some WAF products.  This extension wi
   X-Forwarded-For: 127.0.0.1
   X-Remote-IP: 127.0.0.1
   X-Remote-Addr: 127.0.0.1
+  X-Client-IP: 127.0.0.1
 </pre>
 
 
