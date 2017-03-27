@@ -1,6 +1,6 @@
 /*
  * Name:           Bypass WAF
- * Version:        0.2.2
+ * Version:        0.2.3
  * Date:           11/16/2014
  * Author:         Josh Berry - josh.berry@codewatch.org
  * Github:         https://github.com/codewatchorg/bypasswaf
@@ -43,7 +43,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   public IBurpExtenderCallbacks extCallbacks;
   public IExtensionHelpers extHelpers;
   public JPanel bwafPanel;
-  private static final String bypassWafVersion = "0.2.2";
+  private static final String bypassWafVersion = "0.2.3";
   private PrintWriter printOut;
   private String bypassIP = "127.0.0.1";
   private String contentTypeBypass = "Keep";
@@ -62,9 +62,9 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
   private String defaultPathParam = "";
   private String defaultPathValue = "";
   private String defaultHppValue = "1";
-  private final List<String> bwafHeaders = Arrays.asList("X-Originating-IP", "X-Forwarded-For", "X-Remote-IP", "X-Remote-Addr");
+  private final List<String> bwafHeaders = Arrays.asList("X-Originating-IP", "X-Forwarded-For", "X-Remote-IP", "X-Remote-Addr", "X-Client-IP");
   private final List<String> bwafPathInfo = Arrays.asList("NoPathInfo", "PathInfoInjection", "PathParametersInjection");
-  private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0 );
+  private final List<Integer> bwafHeaderInit = Arrays.asList( 0, 0, 0, 0, 0 );
   private final HashMap<String, String> bwafCharEncodings = new HashMap();
   private final HashMap<String, String> bwafQueryEncodings = new HashMap();
   private final HashMap<String, String> bwafSpacePayloads = new HashMap();
@@ -320,7 +320,7 @@ public class BurpExtender implements IBurpExtender, ISessionHandlingAction, ITab
     
     /* Set values for labels, panels, locations, etc */
     bwafIPLabel.setText("Header IP:");
-    bwafIPDescLabel.setText("Set IP for X-Originating-IP, X-Forwarded-For, X-Remote-IP, and X-Remote-Addr headers.");
+    bwafIPDescLabel.setText("Set IP for X-Originating-IP, X-Forwarded-For, X-Remote-IP, X-Remote-Addr, and X-Client-IP headers.");
     bwafIPLabel.setBounds(16, 15, 75, 20);
     bwafIPText.setBounds(146, 12, 310, 26);
     bwafIPDescLabel.setBounds(606, 15, 600, 20);
