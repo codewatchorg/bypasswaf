@@ -1,0 +1,12 @@
+Uuid: ae2611da3bbc4687953a1f4ba6a4e04c
+ExtensionType: 1
+Name: Bypass WAF
+RepoName: bypass-waf
+ScreenVersion: 0.2.3
+SerialVersion: 5
+MinPlatformVersion: 0
+ProOnly: False
+Author: Josh Berry
+ShortDescription: Adds headers useful for bypassing some WAF devices.
+EntryPoint: build/libs/bypass-waf-all.jar
+BuildCommand: gradle fatJar
